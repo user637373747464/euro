@@ -60,11 +60,22 @@
   .grow .fig, .item > .fig { margin-left: auto; }
   .empty { padding: 14px 0; }
 
+  .acct { padding:14px 0 10px; border-bottom:1px solid var(--line); }
+  .acct:last-child { border-bottom:0; }
+  .arow { display:flex; align-items:center; gap:12px; }
+  .nochart { margin:8px 0 4px; font-size:12px; color:var(--mute); }
+  .chart { width:100%; height:auto; display:block; margin-top:8px; }
+  .chart .grid { stroke:var(--line); stroke-width:1; }
+  .chart .tick { font-size:10px; fill:var(--mute); font-family: ui-monospace, Menlo, monospace; }
+  .chart .line { fill:none; stroke:var(--ink); stroke-width:1.8; }
+  .chart .dot { fill:var(--ink); }
+
   button {
     font: inherit; font-size: 14px; color: var(--bg); background: var(--ink);
     border: 1px solid var(--ink); padding: 9px 14px; border-radius: 0; cursor: pointer;
   }
   button.ghost { background: transparent; color: var(--ink); }
+  button.small { font-size: 12px; padding: 6px 10px; }
   button.icon {
     background: transparent; color: var(--mute); border: 0; padding: 4px 6px; font-size: 18px; line-height: 1;
   }
@@ -165,6 +176,15 @@
   </form>
 </dialog>
 
+<dialog id="dlg-del">
+  <h3>Supprimer ce compte ?</h3>
+  <p id="del-text" style="margin:0 0 8px; color:var(--mute); line-height:1.4"></p>
+  <div class="actions">
+    <button type="button" class="ghost" data-close>Annuler</button>
+    <button type="button" data-action="confirm-del">Supprimer</button>
+  </div>
+</dialog>
+
 <script>
   const KEY = 'euro.data.v1';
   const THEME_KEY = 'euro.theme';
@@ -201,6 +221,53 @@
       .reduce((sum, t) => sum + (t.kind === 'income' ? t.amount : -t.amount), acc.initial);
   }
 
+  // ----- Graphique : solde d'un compte au fil du temps -----
+  function accountChart(acc) {
+    const txs = data.transactions
+      .filter((t) => t.accountId === acc.id)
+      .sort((a, b) => a.date.localeCompare(b.date) || a.created - b.created);
+    if (!txs.length) return '<p class="nochart">Pas encore d\'opérations</p>';
+
+    // Un point par jour : solde à la fin de la journée
+    const pts = [];
+    let v = acc.initial;
+    txs.forEach((t) => {
+      v += t.kind === 'income' ? t.amount : -t.amount;
+      const x = new Date(t.date + 'T12:00').getTime();
+      if (pts.length && pts[pts.length - 1].x === x) pts[pts.length - 1].y = v;
+      else pts.push({ x, y: v });
+    });
+
+    const DAY = 86400000;
+    const xmin = pts[0].x;
+    const xmax = Math.max(pts[pts.length - 1].x, new Date().setHours(12, 0, 0, 0));
+    const span = xmax - xmin || 7 * DAY;
+    const vals = [acc.initial, ...pts.map((p) => p.y)];
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    if (lo === hi) { lo -= 1; hi += 1; }
+
+    const W = 320, H = 130, L = 6, R = 8, T = 20, B = 34;
+    const X = (t) => L + ((t - xmin) / span) * (W - L - R);
+    const Y = (val) => T + (1 - (val - lo) / (hi - lo)) * (H - T - B);
+
+    // Courbe en escalier : le solde reste constant entre deux opérations
+    let d = `M${X(xmin).toFixed(1)} ${Y(acc.initial).toFixed(1)}`;
+    pts.forEach((p) => { d += ` H${X(p.x).toFixed(1)} V${Y(p.y).toFixed(1)}`; });
+    d += ` H${X(xmax).toFixed(1)}`;
+
+    const dm = (t) => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Solde de ${esc(acc.name)} au fil du temps">
+      <line class="grid" x1="${L}" x2="${W - R}" y1="${Y(hi)}" y2="${Y(hi)}"/>
+      <line class="grid" x1="${L}" x2="${W - R}" y1="${Y(lo)}" y2="${Y(lo)}"/>
+      <text class="tick" x="${L}" y="${Y(hi) - 5}">${money(hi)}</text>
+      <text class="tick" x="${L}" y="${Y(lo) + 13}">${money(lo)}</text>
+      <path class="line" d="${d}"/>
+      ${pts.map((p) => `<circle class="dot" cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="2.5"/>`).join('')}
+      <text class="tick" x="${L}" y="${H - 4}">${dm(xmin)}</text>
+      <text class="tick" x="${W - R}" y="${H - 4}" text-anchor="end">${dm(xmax)}</text>
+    </svg>`;
+  }
+
   // ----- Affichage -----
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -212,10 +279,13 @@
 
     $('#accounts').innerHTML = data.accounts.length
       ? data.accounts.map((a) => `
-        <li class="item">
-          <span class="grow"><span class="t">${esc(a.name)}</span></span>
-          <span class="fig">${money(balance(a))}</span>
-          <button class="icon" type="button" data-action="del-acc" data-id="${a.id}" aria-label="Supprimer le compte">×</button>
+        <li class="acct">
+          <div class="arow">
+            <span class="grow"><span class="t">${esc(a.name)}</span></span>
+            <span class="fig">${money(balance(a))}</span>
+            <button class="icon" type="button" data-action="del-acc" data-id="${a.id}" aria-label="Supprimer le compte">×</button>
+          </div>
+          ${accountChart(a)}
         </li>`).join('')
       : '<li class="empty">Aucun compte</li>';
 
@@ -262,8 +332,11 @@
     return d.toISOString().slice(0, 10);
   };
 
+  // Accepte "12,50", "12.50", "1 000", "1.000,50", "12 €"
   const parseAmount = (v) => {
-    const n = parseFloat(String(v).replace(',', '.'));
+    let s = String(v).replace(/[\s  €]/g, '');
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(s);
     return Number.isFinite(n) ? n : NaN;
   };
 
@@ -287,7 +360,12 @@
     e.preventDefault();
     const f = e.target;
     const amount = Math.abs(parseAmount(f.amount.value));
-    if (!(amount > 0)) { f.amount.focus(); return; }
+    if (!(amount > 0)) {
+      f.amount.setCustomValidity('Entre un montant, par exemple 12,50');
+      f.amount.reportValidity();
+      f.amount.addEventListener('input', () => f.amount.setCustomValidity(''), { once: true });
+      return;
+    }
     data.transactions.push({
       id: uid(),
       kind: f.kind.value,
@@ -317,6 +395,7 @@
   });
 
   // ----- Clics -----
+  let pendingDelete = null;
   document.addEventListener('click', (e) => {
     const closeBtn = e.target.closest('[data-close]');
     if (closeBtn) { closeBtn.closest('dialog').close(); return; }
@@ -333,10 +412,21 @@
         save(); render(); break;
       case 'del-acc': {
         const acc = data.accounts.find((a) => a.id === id);
-        if (!acc || !confirm(`Supprimer « ${acc.name} » et ses opérations ?`)) break;
-        data.accounts = data.accounts.filter((a) => a.id !== id);
-        data.transactions = data.transactions.filter((t) => t.accountId !== id);
-        save(); render(); break;
+        if (!acc) break;
+        pendingDelete = id;
+        const n = data.transactions.filter((t) => t.accountId === id).length;
+        document.querySelector('#del-text').textContent =
+          `« ${acc.name} » et ses ${n} opération${n > 1 ? 's' : ''} seront supprimés. Cette action est définitive.`;
+        document.querySelector('#dlg-del').showModal();
+        break;
+      }
+      case 'confirm-del': {
+        data.accounts = data.accounts.filter((a) => a.id !== pendingDelete);
+        data.transactions = data.transactions.filter((t) => t.accountId !== pendingDelete);
+        pendingDelete = null;
+        save(); render();
+        document.querySelector('#dlg-del').close();
+        break;
       }
     }
   });
