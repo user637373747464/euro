@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Euro">
+<meta name="theme-color" content="#ffffff">
+<title>Euro</title>
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink: #000000;
+    --mute: rgba(0, 0, 0, 0.5);
+    --line: rgba(0, 0, 0, 0.15);
+  }
+  [data-theme="dark"] {
+    --bg: #000000;
+    --ink: #ffffff;
+    --mute: rgba(255, 255, 255, 0.5);
+    --line: rgba(255, 255, 255, 0.2);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font-family: -apple-system, system-ui, "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+  }
+  main { max-width: 520px; margin: 0 auto; padding-bottom: 60px; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 0 8px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand span { font-family: Georgia, "Times New Roman", serif; font-size: 22px; letter-spacing: 0.02em; }
+
+  .total { padding: 28px 0 36px; border-bottom: 1px solid var(--line); }
+  .label, small, .empty, h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--mute); margin: 0;
+  }
+  .big {
+    font-family: Georgia, "Times New Roman", serif; font-weight: 300;
+    font-size: 48px; margin: 8px 0 0; letter-spacing: -0.01em;
+  }
+
+  section { padding: 24px 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: 0; }
+  .row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+
+  .list { list-style: none; margin: 0; padding: 0; }
+  .item { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .item:last-child { border-bottom: 0; }
+  .grow { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fig { font-family: ui-monospace, Menlo, monospace; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .grow .fig, .item > .fig { margin-left: auto; }
+  .empty { padding: 14px 0; }
+
+  button {
+    font: inherit; font-size: 14px; color: var(--bg); background: var(--ink);
+    border: 1px solid var(--ink); padding: 9px 14px; border-radius: 0; cursor: pointer;
+  }
+  button.ghost { background: transparent; color: var(--ink); }
+  button.icon {
+    background: transparent; color: var(--mute); border: 0; padding: 4px 6px; font-size: 18px; line-height: 1;
+  }
+
+  dialog {
+    background: var(--bg); color: var(--ink);
+    border: 1px solid var(--ink); border-radius: 0;
+    width: min(92vw, 420px); padding: 24px;
+  }
+  dialog::backdrop { background: rgba(128, 128, 128, 0.5); }
+  dialog h3 {
+    font-family: Georgia, "Times New Roman", serif; font-weight: 400; font-size: 22px; margin: 0 0 18px;
+  }
+  form { display: flex; flex-direction: column; gap: 16px; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--mute); }
+  input, select {
+    font: inherit; font-size: 16px; text-transform: none; letter-spacing: normal;
+    color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--ink);
+    padding: 8px 0; border-radius: 0; outline: none; color-scheme: light dark;
+  }
+  select option { background: var(--bg); color: var(--ink); }
+
+  .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--ink); }
+  .seg label { flex-direction: row; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg span {
+    flex: 1; text-align: center; padding: 10px 0; font-size: 14px; text-transform: none;
+    letter-spacing: normal; color: var(--ink); cursor: pointer;
+  }
+  .seg label:first-child span { border-right: 1px solid var(--ink); }
+  .seg input:checked + span { background: var(--ink); color: var(--bg); }
+
+  .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 120 120" aria-hidden="true">
+        <circle cx="60" cy="60" r="56" style="fill:var(--ink)"/>
+        <text x="60" y="80" text-anchor="middle" font-family="Georgia, serif" font-size="66" style="fill:var(--bg)">€</text>
+      </svg>
+      <span>Euro</span>
+    </div>
+    <button id="theme" class="ghost" type="button">Sombre</button>
+  </header>
+
+  <section class="total">
+    <p class="label">Solde total</p>
+    <p id="total" class="big"></p>
+  </section>
+
+  <section>
+    <div class="row">
+      <h2>Comptes</h2>
+      <button class="ghost" type="button" data-action="add-account">+ Compte</button>
+    </div>
+    <ul id="accounts" class="list"></ul>
+  </section>
+
+  <section>
+    <div class="row">
+      <h2>Opérations</h2>
+      <button type="button" data-action="add-tx">+ Opération</button>
+    </div>
+    <ul id="recent" class="list"></ul>
+  </section>
+</main>
+
+<dialog id="dlg-tx">
+  <form id="form-tx">
+    <h3>Nouvelle opération</h3>
+    <div class="seg">
+      <label><input type="radio" name="kind" value="expense" checked><span>Dépense</span></label>
+      <label><input type="radio" name="kind" value="income"><span>Revenu</span></label>
+    </div>
+    <label>Intitulé <input name="title" required maxlength="60" autocomplete="off"></label>
+    <label>Montant (€) <input name="amount" inputmode="decimal" required placeholder="0,00" autocomplete="off"></label>
+    <label>Date <input name="date" type="date" required></label>
+    <label>Compte <select name="account" required></select></label>
+    <div class="actions">
+      <button type="button" class="ghost" data-close>Annuler</button>
+      <button type="submit">Ajouter</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-acc">
+  <form id="form-acc">
+    <h3>Nouveau compte</h3>
+    <label>Nom <input name="name" required maxlength="40" placeholder="ex : Livret A" autocomplete="off"></label>
+    <label>Solde de départ (€) <input name="initial" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+    <div class="actions">
+      <button type="button" class="ghost" data-close>Annuler</button>
+      <button type="submit">Ajouter</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  const KEY = 'euro.data.v1';
+  const THEME_KEY = 'euro.theme';
+  const $ = (sel) => document.querySelector(sel);
+  const money = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
+
+  // ----- Données -----
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  function load() {
+    try {
+      const d = JSON.parse(localStorage.getItem(KEY));
+      if (d && Array.isArray(d.accounts)) return d;
+    } catch (e) {}
+    return {
+      accounts: [
+        { id: uid(), name: 'Compte courant', initial: 0 },
+        { id: uid(), name: 'Épargne', initial: 0 },
+        { id: uid(), name: 'Espèces', initial: 0 },
+      ],
+      transactions: [],
+    };
+  }
+
+  let data = load();
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
+  }
+
+  function balance(acc) {
+    return data.transactions
+      .filter((t) => t.accountId === acc.id)
+      .reduce((sum, t) => sum + (t.kind === 'income' ? t.amount : -t.amount), acc.initial);
+  }
+
+  // ----- Affichage -----
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const fmtDate = (iso) => new Date(iso + 'T12:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  function render() {
+    $('#total').textContent = money(data.accounts.reduce((s, a) => s + balance(a), 0));
+
+    $('#accounts').innerHTML = data.accounts.length
+      ? data.accounts.map((a) => `
+        <li class="item">
+          <span class="grow"><span class="t">${esc(a.name)}</span></span>
+          <span class="fig">${money(balance(a))}</span>
+          <button class="icon" type="button" data-action="del-acc" data-id="${a.id}" aria-label="Supprimer le compte">×</button>
+        </li>`).join('')
+      : '<li class="empty">Aucun compte</li>';
+
+    const recent = [...data.transactions]
+      .sort((a, b) => b.date.localeCompare(a.date) || b.created - a.created)
+      .slice(0, 50);
+
+    $('#recent').innerHTML = recent.length
+      ? recent.map((t) => {
+          const acc = data.accounts.find((a) => a.id === t.accountId);
+          const sign = t.kind === 'income' ? '+' : '−';
+          return `
+        <li class="item">
+          <span class="grow">
+            <span class="t">${esc(t.title)}</span>
+            <small>${fmtDate(t.date)} · ${esc(acc ? acc.name : '—')}</small>
+          </span>
+          <span class="fig">${sign}${money(t.amount)}</span>
+          <button class="icon" type="button" data-action="del-tx" data-id="${t.id}" aria-label="Supprimer l'opération">×</button>
+        </li>`;
+        }).join('')
+      : '<li class="empty">Aucune opération</li>';
+  }
+
+  // ----- Thème clair / sombre -----
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    $('#theme').textContent = theme === 'dark' ? 'Clair' : 'Sombre';
+  }
+
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  applyTheme(savedTheme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+  $('#theme').addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem(THEME_KEY, next);
+    applyTheme(next);
+  });
+
+  // ----- Formulaires -----
+  const today = () => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 10);
+  };
+
+  const parseAmount = (v) => {
+    const n = parseFloat(String(v).replace(',', '.'));
+    return Number.isFinite(n) ? n : NaN;
+  };
+
+  function openTx() {
+    const form = $('#form-tx');
+    form.reset();
+    form.date.value = today();
+    form.account.innerHTML = data.accounts
+      .map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+    $('#dlg-tx').showModal();
+    form.title.focus();
+  }
+
+  function openAcc() {
+    $('#form-acc').reset();
+    $('#dlg-acc').showModal();
+    $('#form-acc').name.focus();
+  }
+
+  $('#form-tx').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const amount = Math.abs(parseAmount(f.amount.value));
+    if (!(amount > 0)) { f.amount.focus(); return; }
+    data.transactions.push({
+      id: uid(),
+      kind: f.kind.value,
+      title: f.title.value.trim(),
+      amount,
+      date: f.date.value,
+      accountId: f.account.value,
+      created: Date.now(),
+    });
+    save();
+    render();
+    $('#dlg-tx').close();
+  });
+
+  $('#form-acc').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const initial = parseAmount(f.initial.value);
+    data.accounts.push({
+      id: uid(),
+      name: f.name.value.trim(),
+      initial: Number.isFinite(initial) ? initial : 0,
+    });
+    save();
+    render();
+    $('#dlg-acc').close();
+  });
+
+  // ----- Clics -----
+  document.addEventListener('click', (e) => {
+    const closeBtn = e.target.closest('[data-close]');
+    if (closeBtn) { closeBtn.closest('dialog').close(); return; }
+
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+
+    switch (btn.dataset.action) {
+      case 'add-tx': openTx(); break;
+      case 'add-account': openAcc(); break;
+      case 'del-tx':
+        data.transactions = data.transactions.filter((t) => t.id !== id);
+        save(); render(); break;
+      case 'del-acc': {
+        const acc = data.accounts.find((a) => a.id === id);
+        if (!acc || !confirm(`Supprimer « ${acc.name} » et ses opérations ?`)) break;
+        data.accounts = data.accounts.filter((a) => a.id !== id);
+        data.transactions = data.transactions.filter((t) => t.accountId !== id);
+        save(); render(); break;
+      }
+    }
+  });
+
+  render();
+</script>
+</body>
+</html>

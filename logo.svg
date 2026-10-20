@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <style>
+    .disc { fill: #000; }
+    .sign { fill: #fff; }
+    @media (prefers-color-scheme: dark) {
+      .disc { fill: #fff; }
+      .sign { fill: #000; }
+    }
+  </style>
+  <circle class="disc" cx="60" cy="60" r="56"/>
+  <text class="sign" x="60" y="80" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="66">€</text>
+</svg>
